@@ -1,0 +1,195 @@
+### **Packet Tracer - Configuring Extended ACLs (Step-by-Step Guide)**  
+This guide will help you **configure, apply, and verify** **Extended ACLs** in **Cisco Packet Tracer**.
+
+---
+
+## **📌 Scenario**
+- **PC1** should only have **FTP** and **ICMP (ping)** access to the **Server**.
+- **PC2** should only have **HTTP** and **ICMP (ping)** access to the **Server**.
+- **PC1 and PC2 should not be able to communicate with each other**.
+- We will configure **two Extended ACLs**:
+  - **Numbered ACL (100) for PC1**
+  - **Named ACL (HTTP_ONLY) for PC2**.
+
+---
+
+## **Step 1: Network Setup in Packet Tracer**
+1️⃣ **Open Cisco Packet Tracer**.  
+2️⃣ **Add the following devices**:
+   - 1 **Router (R1)**
+   - 2 **PCs (PC1, PC2)**
+   - 1 **Server**
+3️⃣ **Connect them with cables**:
+   - **G0/0 (R1) → PC1**
+   - **G0/1 (R1) → PC2**
+   - **G0/2 (R1) → Server**
+   
+---
+
+## **Step 2: Configure IP Addresses on R1**
+1️⃣ **Open R1 CLI** and enter **configuration mode**:
+
+   ```bash
+   enable
+   configure terminal
+   ```
+
+2️⃣ **Assign IP addresses to interfaces**:
+
+   ```bash
+   interface gigabitEthernet 0/0
+   ip address 172.22.34.65 255.255.255.224
+   no shutdown
+   exit
+
+   interface gigabitEthernet 0/1
+   ip address 172.22.34.97 255.255.255.240
+   no shutdown
+   exit
+
+   interface gigabitEthernet 0/2
+   ip address 172.22.34.1 255.255.255.192
+   no shutdown
+   exit
+   ```
+
+---
+
+## **Step 3: Configure IP Addresses on PC1, PC2, and Server**
+1️⃣ **PC1 Configuration**:
+   - Open **PC1** > **Desktop** > **IP Configuration**  
+   - **IP Address**: `172.22.34.66`  
+   - **Subnet Mask**: `255.255.255.224`  
+   - **Default Gateway**: `172.22.34.65`
+
+2️⃣ **PC2 Configuration**:
+   - Open **PC2** > **Desktop** > **IP Configuration**  
+   - **IP Address**: `172.22.34.98`  
+   - **Subnet Mask**: `255.255.255.240`  
+   - **Default Gateway**: `172.22.34.97`
+
+3️⃣ **Server Configuration**:
+   - Open **Server** > **Desktop** > **IP Configuration**  
+   - **IP Address**: `172.22.34.62`  
+   - **Subnet Mask**: `255.255.255.192`  
+   - **Default Gateway**: `172.22.34.1`
+
+---
+
+## **Step 4: Configure Numbered Extended ACL for PC1 (FTP + ICMP)**
+1️⃣ Open **R1 CLI** and enter:
+
+   ```bash
+   configure terminal
+   ```
+
+2️⃣ Create **Extended ACL 100** to allow **FTP and ICMP**:
+
+   ```bash
+   access-list 100 permit tcp 172.22.34.64 0.0.0.31 host 172.22.34.62 eq ftp
+   access-list 100 permit icmp 172.22.34.64 0.0.0.31 host 172.22.34.62
+   exit
+   ```
+
+3️⃣ **Apply ACL 100** to **G0/0** (Inbound Traffic):
+
+   ```bash
+   interface gigabitEthernet 0/0
+   ip access-group 100 in
+   exit
+   ```
+
+---
+
+## **Step 5: Configure Named Extended ACL for PC2 (HTTP + ICMP)**
+1️⃣ Open **R1 CLI** and enter:
+
+   ```bash
+   configure terminal
+   ```
+
+2️⃣ Create **Extended Named ACL**:
+
+   ```bash
+   ip access-list extended HTTP_ONLY
+   permit tcp 172.22.34.96 0.0.0.15 host 172.22.34.62 eq www
+   permit icmp 172.22.34.96 0.0.0.15 host 172.22.34.62
+   exit
+   ```
+
+3️⃣ **Apply ACL to Interface G0/1**:
+
+   ```bash
+   interface gigabitEthernet 0/1
+   ip access-group HTTP_ONLY in
+   exit
+   ```
+
+---
+
+## **Step 6: Testing & Verification**
+### ✅ **Test ACL 100 (PC1)**
+1️⃣ **Ping the Server from PC1**:
+   ```bash
+   ping 172.22.34.62
+   ```
+   ✅ **Ping should work**.
+
+2️⃣ **Try FTP from PC1 to Server**:
+   ```bash
+   ftp 172.22.34.62
+   ```
+   - **Username:** `cisco`
+   - **Password:** `cisco`
+   ✅ **FTP should work**.
+
+3️⃣ **Try Ping from PC1 to PC2**:
+   ```bash
+   ping 172.22.34.98
+   ```
+   ❌ **Ping should fail (blocked by ACL).**
+
+---
+
+### ✅ **Test Named ACL (PC2)**
+1️⃣ **Ping the Server from PC2**:
+   ```bash
+   ping 172.22.34.62
+   ```
+   ✅ **Ping should work**.
+
+2️⃣ **Try FTP from PC2 to Server**:
+   ```bash
+   ftp 172.22.34.62
+   ```
+   ❌ **FTP should fail (not allowed).**
+
+3️⃣ **Open Web Browser on PC2**:
+   - Enter **`http://172.22.34.62`**  
+   ✅ **Web page should load (HTTP is allowed).**
+
+---
+
+## **Step 7: Check ACL Logs on R1**
+To verify ACL statistics, run:
+
+```bash
+show access-lists
+```
+
+This will display **hit counts** for permitted and denied traffic.
+
+---
+
+## **🎯 Final Checklist**
+✅ **PC1 can ping Server**  
+✅ **PC1 can FTP to Server**  
+✅ **PC1 cannot ping PC2**  
+✅ **PC2 can ping Server**  
+✅ **PC2 can browse Server’s webpage (HTTP)**  
+✅ **PC2 cannot FTP to Server**  
+✅ **PC1 and PC2 cannot communicate with each other**  
+
+---
+
+### **🎉 Congratulations! You have successfully configured Extended ACLs in Packet Tracer! 🚀**

@@ -1,0 +1,273 @@
+To complete this Packet Tracer IPv6 ACL configuration, follow these detailed steps:
+
+---
+
+# **🟢 Part 1: Configure, Apply, and Verify IPv6 ACL to Block HTTP/HTTPS**
+### **Scenario**
+A DoS attack from the `2001:DB8:1:11::/64` network is targeting **Server3 (2001:DB8:1:30::30)** with excessive HTTP and HTTPS requests. We need to **block** this traffic while allowing all other traffic.
+
+## **Step 1: Configure the IPv6 ACL on R1**
+1. **Access R1 and enter configuration mode:**
+   ```bash
+   enable
+   configure terminal
+   ```
+
+2. **Create the ACL named `BLOCK_HTTP` and block HTTP/HTTPS traffic from any source to Server3:**
+   ```bash
+   ipv6 access-list BLOCK_HTTP
+   deny tcp any host 2001:DB8:1:30::30 eq www
+   deny tcp any host 2001:DB8:1:30::30 eq 443
+   permit ipv6 any any
+   exit
+   ```
+
+---
+
+## **Step 2: Apply the ACL to the Correct Interface**
+1. Identify the **incoming interface** from the attacking network `2001:DB8:1:11::/64` on **R1**.  
+   - Suppose the interface connected to this network is **GigabitEthernet0/0**.
+   
+2. **Apply the ACL to that interface in the inbound direction:**
+   ```bash
+   interface GigabitEthernet0/0
+   ipv6 traffic-filter BLOCK_HTTP in
+   exit
+   ```
+
+---
+
+## **Step 3: Verify the ACL Implementation**
+### **Testing from PC1 (Not in 2001:DB8:1:11::/64)**
+- Open a web browser and go to:
+  ```
+  http://2001:DB8:1:30::30
+  https://2001:DB8:1:30::30
+  ```
+  ✅ **Website should load successfully.**
+
+### **Testing from PC2 (In 2001:DB8:1:11::/64)**
+- Open a web browser and go to:
+  ```
+  http://2001:DB8:1:30::30
+  https://2001:DB8:1:30::30
+  ```
+  ❌ **Website should be blocked.**
+
+- **Ping Server3 from PC2:**
+  ```bash
+  ping 2001:DB8:1:30::30
+  ```
+  ✅ **Ping should succeed (since only HTTP/HTTPS is blocked).**
+
+---
+
+# **🟢 Part 2: Configure, Apply, and Verify IPv6 ACL to Block ICMP**
+### **Scenario**
+A **DDoS attack** is now targeting Server3 with excessive ICMP pings. To mitigate this, **all ICMP traffic** to Server3 must be blocked.
+
+## **Step 1: Create an IPv6 ACL to Block ICMP on R3**
+1. **Access R3 and enter configuration mode:**
+   ```bash
+   enable
+   configure terminal
+   ```
+
+2. **Create the ACL named `BLOCK_ICMP` to block all ICMP traffic:**
+   ```bash
+   ipv6 access-list BLOCK_ICMP
+   deny icmp any any
+   permit ipv6 any any
+   exit
+   ```
+
+---
+
+## **Step 2: Apply the ACL to the Correct Interface**
+- Since ICMP traffic **comes from multiple sources**, we apply this ACL **closest to the destination**, which is **R3's interface connected to Server3**.
+  
+1. Identify the correct interface on **R3**. Suppose it's **GigabitEthernet0/1**.
+2. **Apply the ACL on that interface in the inbound direction:**
+   ```bash
+   interface GigabitEthernet0/1
+   ipv6 traffic-filter BLOCK_ICMP in
+   exit
+   ```
+
+---
+
+## **Step 3: Verify the ACL Implementation**
+### **Testing from PC2**
+1. **Ping Server3 from PC2:**
+   ```bash
+   ping 2001:DB8:1:30::30
+   ```
+   ❌ **Ping should fail.**
+
+### **Testing from PC1**
+1. **Ping Server3 from PC1:**
+   ```bash
+   ping 2001:DB8:1:30::30
+   ```
+   ❌ **Ping should fail.**
+
+2. **Open a web browser and go to `http://2001:DB8:1:30::30` or `https://2001:DB8:1:30::30`:**
+   ✅ **Website should load successfully (since only ICMP is blocked).**
+
+---
+
+# **✅ Summary of ACL Configurations**
+### **🚀 On R1 (Blocking HTTP/HTTPS from 2001:DB8:1:11::/64)**
+```bash
+ipv6 access-list BLOCK_HTTP
+ deny tcp any host 2001:DB8:1:30::30 eq www
+ deny tcp any host 2001:DB8:1:30::30 eq 443
+ permit ipv6 any any
+exit
+!
+interface GigabitEthernet0/0
+ ipv6 traffic-filter BLOCK_HTTP in
+exit
+```
+
+### **🚀 On R3 (Blocking ICMP to Server3)**
+```bash
+ipv6 access-list BLOCK_ICMP
+ deny icmp any any
+ permit ipv6 any any
+exit
+!
+interface GigabitEthernet0/1
+ ipv6 traffic-filter BLOCK_ICMP in
+exit
+```
+
+---
+
+## **Final Verification**
+- Run the following **show commands** on R1 and R3 to confirm ACL hits:
+  ```bash
+  show ipv6 access-list
+  ```
+  - This will display ACL rules and the number of **matches (hits)**.
+
+  ```bash
+  show running-config | section ipv6
+  ```
+  - This will confirm that ACLs are applied correctly.
+
+---
+
+# **🎯 Next Steps**
+1. **Check your Packet Tracer Assessment Results**  
+2. If any ACL is still marked incorrect, let me know what error you see, and I’ll debug it for you! 🚀
+
+Your assessment shows that the ACLs **BLOCK_HTTP** and **BLOCK_ICMP** are correct, but the **IPv6 Traffic Filter In on R1 (GigabitEthernet0/1)** and **IPv6 Traffic Filter Out on R3 (GigabitEthernet0/0)** are incorrect.
+
+---
+
+## **🔍 Fixing IPv6 Traffic Filter on R1 and R3**
+
+### **🛠 Issue 1: R1 (GigabitEthernet0/1) - Incorrect IPv6 Traffic Filter In**
+- **Why?**  
+  - The ACL **BLOCK_HTTP** is correct, but it might be applied to the **wrong interface**.
+  - You likely applied it on **GigabitEthernet0/0**, but Packet Tracer expects it on **GigabitEthernet0/1**.
+
+- **Fix:**
+  1. Remove ACL from the wrong interface (if applied elsewhere):  
+     ```bash
+     configure terminal
+     interface GigabitEthernet0/0
+     no ipv6 traffic-filter BLOCK_HTTP in
+     exit
+     ```
+  2. Apply ACL to **GigabitEthernet0/1** instead:
+     ```bash
+     interface GigabitEthernet0/1
+     ipv6 traffic-filter BLOCK_HTTP in
+     exit
+     ```
+
+---
+
+### **🛠 Issue 2: R3 (GigabitEthernet0/0) - Incorrect IPv6 Traffic Filter Out**
+- **Why?**  
+  - The **BLOCK_ICMP** ACL is correct, but Packet Tracer expects it in the **Inbound direction**, not Outbound.
+
+- **Fix:**
+  1. Remove the ACL applied in the Outbound direction:
+     ```bash
+     configure terminal
+     interface GigabitEthernet0/0
+     no ipv6 traffic-filter BLOCK_ICMP out
+     exit
+     ```
+  2. Apply ACL **Inbound** instead:
+     ```bash
+     interface GigabitEthernet0/0
+     ipv6 traffic-filter BLOCK_ICMP in
+     exit
+     ```
+
+---
+
+### **📌 Final Verification**
+After applying these fixes, use:
+```bash
+show ipv6 access-list
+show running-config | section ipv6
+```
+- Ensure ACLs are now applied to the correct **interfaces** and **directions**.
+
+---
+
+### **🎯 Summary of Fixes**
+| Device | Interface | ACL | Direction | Fix |
+|--------|----------|-----|-----------|-----|
+| R1 | GigabitEthernet0/1 | BLOCK_HTTP | INBOUND | ✅ Apply here |
+| R3 | GigabitEthernet0/0 | BLOCK_ICMP | INBOUND | ✅ Apply here |
+
+🔄 **Recheck Packet Tracer Assessment** – It should now show **Correct** for all sections! 🚀
+
+Your remaining issue is **"IPv6 Traffic Filter Out Incorrect"** on **GigabitEthernet0/0** of **R3**.
+
+---
+
+## **🛠 Fixing IPv6 Traffic Filter Out Issue on R3**
+### **✅ Solution**
+The **BLOCK_ICMP** ACL is correctly configured, but it is applied **outbound** when it should be applied **inbound**.
+
+1. **Remove incorrect outbound application:**
+   ```bash
+   configure terminal
+   interface GigabitEthernet0/0
+   no ipv6 traffic-filter BLOCK_ICMP out
+   exit
+   ```
+   
+2. **Apply the ACL inbound instead:**
+   ```bash
+   interface GigabitEthernet0/0
+   ipv6 traffic-filter BLOCK_ICMP in
+   exit
+   ```
+
+---
+
+## **📌 Verify Fix**
+After applying the fix, check with:
+```bash
+show ipv6 interface GigabitEthernet0/0
+show ipv6 access-list
+show running-config | section ipv6
+```
+Ensure that **BLOCK_ICMP** is now applied as **Inbound**.
+
+---
+
+### **🎯 Summary of Fix**
+| Device | Interface | ACL | Correct Direction | Fix |
+|--------|----------|-----|--------------------|-----|
+| R3 | GigabitEthernet0/0 | BLOCK_ICMP | **INBOUND** | ✅ Apply inbound |
+
+🔄 **Recheck Packet Tracer Assessment** – It should now be 100% correct! 🚀
